@@ -1,0 +1,92 @@
+#!/bin/sh
+#Segment
+#Usage:
+#  segment lbp <images> <maps> <number> <destination>
+#  segment filter-bank <images> <maps> <number> <destination>
+#  segment lbp-filter-bank <images> <maps> <number> <destination>
+#  segment gmrf <images> <maps> <number> <destination>
+#  segment -h | --help
+#Options:
+#	-h --help	Show this screen
+#
+
+# Boolean to check whether the help screen is needed
+show_help=false
+
+# Check whether no parameters were supplied
+if [[ $# -eq 0 ]]; then
+	show_help=true
+fi
+
+# Check if -h or --help is an argument
+for var in "$@"; do
+	if [[ $var == "-h" ]] || [[ $var == "--help" ]]; then
+		show_help=true
+	fi
+done
+
+# Show help screen  if the conditionals above asked for it
+if [[ $show_help == true ]]; then
+	echo "Segment"
+	echo -e "A tool for benchmarking segmentation algorithms\n"
+	echo "Usage:"
+	echo "	segment lbp <images> <maps> <number> <destination>"
+	echo "	segment filter-bank <images> <maps> <number> <destination>"
+	echo "	segment lbp-filter-bank <images> <maps> <number> <destination>"
+	echo "	segment gmrf <images> <maps> <number> <destination>"
+	echo "	segment -h | --help"
+	echo "Options:"
+	echo "	-h --help	Show this screen"
+	exit 1
+fi
+
+algorithm=$1
+images_dir=$2
+map_dir=$3
+number=$4
+dest=$5
+
+if [[ ! $algorithm == "lbp" ]] && [[ ! $algorithm == "filter-bank" ]] && [[ ! $algorithm == "lbp-filter-bank" ]] && [[ ! $algorithm == "gmrf" ]]; then
+	echo "segment: ${algorithm} is not a supported algorithm"
+	echo "Try 'segment -h' for more information"
+	exit 1
+fi
+
+check_dir_arg () {
+	if [[ ! -d "$1" ]]; then
+		echo "segment: ${1} is not a directory"
+		echo "Try 'segment -h' for more information"
+		exit 1
+	fi
+}
+
+check_int_arg () {
+	re='^[0-9]+$' 
+	if [[ ! $1 =~ $re ]]; then
+		echo "segment: ${1} is not an integer"
+		echo "Try 'segment -h' for more information"
+		exit 1
+	fi
+}
+
+check_dir_arg $images_dir
+check_dir_arg $map_dir
+check_dir_arg $dest
+check_int_arg $number
+
+if [[ $algorithm == "lbp" ]]; then
+	echo "Queuing LBP segmentation..."
+	for i in $(seq "$4"); do
+		echo "job"
+		#echo -e "#!/bin/sh\n#SBATCH --time=59:00:00\npython $1" > ~/batch_scripts/script_${1%%.*}.sh
+		#sbatch -p lyceum --gres=gpu:1 ~/batch_scripts/script_${1%%.*}.sh
+	done
+elif [[ $algorithm == "filter-bank" ]]; then
+	echo "Queuing Filter bank segmentation..."
+elif [[ $algorithm == "lbp-filter-bank" ]]; then
+	echo "Queuing LBP + Filter Bank segmentation..."
+elif [[ $algorithm == "gmrf" ]]; then
+	echo "Queuing GMRF segmentation..."
+fi
+
+echo "Segmentation jobs successfully queued"
