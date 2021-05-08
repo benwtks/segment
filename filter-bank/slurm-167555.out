@@ -1,0 +1,36 @@
+Running SLURM prolog script on pink56.cluster.local
+===============================================================================
+Job started on Sat May  8 19:33:51 BST 2021
+Job ID          : 167555
+Job name        : script_filter-bank.sh
+WorkDir         : /mainfs/lyceum/blw1g18/segment/filter-bank
+Command         : /lyceum/blw1g18/batch_scripts/script_filter-bank.sh
+Partition       : lyceum
+Num hosts       : 1
+Num cores       : 2
+Num of tasks    : 1
+Hosts allocated : pink56
+Job Output Follows ...
+===============================================================================
+Lossy conversion from float64 to uint8. Range [50.0, 100.0]. Convert image to uint8 prior to saving to suppress this warning.
+Using 21 Gabor filters
+==============================================================================
+Running epilogue script on pink56.
+
+Submit time  : 2021-05-08T19:33:50
+Start time   : 2021-05-08T19:33:51
+End time     : 2021-05-08T19:40:54
+Elapsed time : 00:07:03 (Timelimit=2-11:00:00)
+
+Job ID: 167555
+Cluster: i5
+User/Group: blw1g18/fp
+State: COMPLETED (exit code 0)
+Nodes: 1
+Cores per node: 2
+CPU Utilized: 00:06:57
+CPU Efficiency: 49.29% of 00:14:06 core-walltime
+Job Wall-clock time: 00:07:03
+Memory Utilized: 146.54 MB
+Memory Efficiency: 0.00% of 0.00 MB
+

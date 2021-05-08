@@ -27,8 +27,6 @@ done
 
 # Show help screen  if the conditionals above asked for it
 if [[ $show_help == true ]]; then
-	echo "Segment"
-	echo -e "A tool for benchmarking segmentation algorithms\n"
 	echo "Usage:"
 	echo "	segment lbp <images> <maps> <number> <destination>"
 	echo "	segment filter-bank <images> <maps> <number> <destination>"
