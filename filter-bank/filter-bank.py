@@ -1,22 +1,21 @@
 import numpy as np
-import cupy as cp
-from numpy.random import normal
-from skimage import data, io
-from skimage.color import rgb2gray, gray2rgb
-from skimage.exposure import equalize_hist
-from sklearn.cluster import KMeans
+import cudf
 from cuml import KMeans
+import cupy as cp
+from cupyx.scipy.ndimage import gaussian_filter
+from cupy.fft import fft2, ifft2, fftshift
+from cupy.random import normal
+from skimage import data, io
+from skimage.exposure import equalize_hist
 from skimage.filters import gabor_kernel
-from scipy.stats import norm
-from scipy.ndimage import gaussian_filter, convolve
-from scipy.fft import fft2, ifft2, fftshift
+from scipy.stats import norm # not available in cupyx.scipy
 from math import log2, sqrt
 import itertools
 from random import randint, sample
 
 def gaussian(kernlen=21, nsig=3):
     linspace = np.linspace(-nsig, nsig, kernlen+1)
-    kern = np.outer(*(np.diff(norm.cdf(linspace)),)*2)
+    kern = cp.outer(*(cp.diff(cp.asarray(norm.cdf(linspace))),)*2)
     return kern/kern.sum()
 
 def generate_feature_images(image):
@@ -28,10 +27,10 @@ def generate_feature_images(image):
   for theta in np.arange(0, 7/6,step=1/6) * np.pi:
     for sigma in (1, 3):
       for frequency in 2**np.arange(3,int(log2(image.shape[0]))-1,step=1) * sqrt(2):
-        kernel = np.real(gabor_kernel(frequency, theta=theta,sigma_x=sigma, sigma_y=sigma))
+        kernel = cp.real(cp.asarray(gabor_kernel(frequency, theta=theta,sigma_x=sigma, sigma_y=sigma)))
 
         padding = (image.shape[0] - kernel.shape[0], image.shape[1] - kernel.shape[1]) 
-        k = np.pad(kernel, (((padding[0]+1)//2, padding[0]//2), ((padding[1]+1)//2, padding[1]//2)), 'constant')
+        k = cp.pad(kernel, (((padding[0]+1)//2, padding[0]//2), ((padding[1]+1)//2, padding[1]//2)), 'constant')
         convolution = image_DFT * fft2(fftshift(k))
         convolutions.append((frequency, convolution))
   
@@ -60,22 +59,22 @@ def generate_feature_images(image):
   return feature_images
 
 def generate_feature_vectors(image, M, alpha):
-  image = equalize_hist(image)
+  image = cp.asarray(equalize_hist(image))
   feature_images = generate_feature_images(image - image.mean())
-  features = np.zeros((image.shape[0], image.shape[1],len(feature_images)))
+  features = cp.zeros((image.shape[0], image.shape[1],len(feature_images)))
   nonlin = lambda i : abs((1- np.exp(-2*alpha*i))/(1+ np.exp(-2*alpha*i)))
   gaussian_kern = gaussian(M, M*0.08)
 
   for i in range(len(feature_images)):
-    nonlin_convolve = np.pad(nonlin(feature_images[i][1]), M//2, mode='symmetric')
+    nonlin_convolve = cp.pad(nonlin(feature_images[i][1]), M//2, mode='symmetric')
 
     # Make a feature image for that convolved image
     for y in range(image.shape[0]):
       for x in range(image.shape[1]):
-        window = nonlin_convolve[np.ix_(range(y,y+M),range(x,x+M))]
+        window = nonlin_convolve[cp.ix_(range(y,y+M),range(x,x+M))]
         blurred = gaussian_filter(window, 3 * np.std(window))
-        weighted = np.einsum('ij,ij->ij', gaussian(M, 0.5*M/feature_images[i][0]), blurred)
-        features[y][x][i] = np.sum(weighted) / M**2
+        weighted = cp.einsum('ij,ij->ij', gaussian(M, 0.5*M/feature_images[i][0]), blurred)
+        features[y][x][i] = cp.sum(weighted) / M**2
   return features
 
 def filter_bank_segment(image, no_segments, M, alpha):
@@ -83,12 +82,12 @@ def filter_bank_segment(image, no_segments, M, alpha):
   for i in range(len(features)):
       features[i] = (features[i] - features[i].mean()) / features[i].std(axis=0)
 
-  kmeans = KMeans(no_segments).fit(features.reshape((image.shape[0]*image.shape[1],features.shape[2])))
+  kmeans = KMeans(n_clusters=no_segments).fit(features.reshape((image.shape[0]*image.shape[1],features.shape[2])))
   segmented = np.zeros(image.shape)
   for i in range(image.shape[0] * image.shape[1]):
     y=i//image.shape[1]
     x=i-y*image.shape[1]
-    segmented[y][x] = 50+kmeans.labels_[i]*100/no_segments
+    segmented[y][x] = kmeans.labels_[i]*255/no_segments
   
   return segmented
 

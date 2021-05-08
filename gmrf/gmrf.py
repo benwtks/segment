@@ -90,10 +90,10 @@ reduced_features = PCA(n_components=no_dimensions).fit(features).transform(featu
 # Cluster
 n_clusters=2
 kmeans = KMeans(n_clusters=n_clusters).fit(reduced_features)
-segmented = np.zeros(shape)
+segmented = np.zeros(image.shape)
 index = 0
-for y in range(0,shape[0] - histogram_window_size + 1, histogram_window_size):
-	for x in range(0,shape[1] - histogram_window_size + 1, histogram_window_size):
+for y in range(0,image.shape[0] - histogram_window_size + 1, histogram_window_size):
+	for x in range(0,image.shape[1] - histogram_window_size + 1, histogram_window_size):
 		label = kmeans.labels_[index]
 		ix = np.ix_(range(y,y+histogram_window_size),range(x,x+histogram_window_size))
 		segmented[ix] = label*255/n_clusters
