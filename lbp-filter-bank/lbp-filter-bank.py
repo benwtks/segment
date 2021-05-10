@@ -2,6 +2,7 @@ import numpy as np
 from numpy.random import normal
 from skimage import data, io
 from skimage.color import rgb2gray, gray2rgb
+from skimage.feature import local_binary_pattern
 from skimage.exposure import equalize_hist
 from sklearn.cluster import KMeans
 from skimage.filters import gabor_kernel
@@ -58,42 +59,42 @@ def generate_feature_images(image):
 
   return feature_images
 
-def generate_feature_vectors(image, M, alpha):
+def generate_lbp_features(image, M, alpha, radius, no_bins):
   image = equalize_hist(image)
   feature_images = generate_feature_images(image - image.mean())
-  features = np.zeros((image.shape[0], image.shape[1],len(feature_images)))
   nonlin = lambda i : abs((1- np.exp(-2*alpha*i))/(1+ np.exp(-2*alpha*i)))
-  gaussian_kern = gaussian(M, M*0.08)
 
-  for i in range(len(feature_images)):
-    nonlin_convolve = np.pad(nonlin(feature_images[i][1]), M//2, mode='symmetric')
+  features = np.zeros((image.shape[0] * image.shape[1],len(feature_images)*no_bins))
+  convolved = [np.pad(nonlin(feature_images[i][1]), M//2, mode='symmetric') for i in range(len(feature_images))]
+  convolved = [c - c.mean() for c in convolved]
 
-    # Make a feature image for that convolved image
-    for y in range(image.shape[0]):
-      for x in range(image.shape[1]):
-        window = nonlin_convolve[np.ix_(range(y,y+M),range(x,x+M))]
-        blurred = gaussian_filter(window, 3 * np.std(window))
-        weighted = np.einsum('ij,ij->ij', gaussian(M, 0.5*M/feature_images[i][0]), blurred)
-        features[y][x][i] = np.sum(weighted) / M**2
+  lbp = lambda i, r: local_binary_pattern(i, 8 * r, r, 'uniform')
+
+  for y in range(image.shape[0]):
+    for x in range(image.shape[1]):
+      for i in range(len(feature_images)):
+        window = convolved[i][np.ix_(range(y,y+M),range(x,x+M))]
+        features[y*image.shape[0]+x][i*no_bins:(i+1)*no_bins] = np.histogram(
+            lbp(window, radius), bins=np.linspace(0,(radius*8)+1,no_bins+1))[0]
   return features
 
-def filter_bank_segment(image, no_segments, M, alpha):
-  features = generate_feature_vectors(image, M, alpha)
-  for i in range(len(features)):
-      features[i] = (features[i] - features[i].mean()) / features[i].std(axis=0)
+def lbp_filter_bank_segment(image, no_segments, M, alpha, radius, no_bins):
+  features = generate_lbp_features(image, M, alpha, radius, no_bins)
 
-  kmeans = KMeans(no_segments).fit(features.reshape((image.shape[0]*image.shape[1],features.shape[2])))
+  kmeans = KMeans(no_segments).fit(features)
   segmented = np.zeros(image.shape)
   for i in range(image.shape[0] * image.shape[1]):
     y=i//image.shape[1]
     x=i-y*image.shape[1]
     segmented[y][x] = 50+kmeans.labels_[i]*100/no_segments
-
+  
   return segmented
 
 image = io.imread(sys.argv[1], as_gray=True)
 window_size = int(sys.argv[2])
-alpha = 0.25 # fixed as recommended
-no_segments = int(sys.argv[3])
+alpha = 0.25 #fixed as paper suggests
+radius = int(sys.argv[3])
+no_bins = int(sys.argv[4])
+no_segments = int(sys.argv[5])
 
-io.imsave("output.png", filter_bank_segment(image, no_segments, window_size, alpha))
+io.imsave("output.png", lbp_filter_bank_segment(image, no_segments, window_size, alpha, radius, no_bins))

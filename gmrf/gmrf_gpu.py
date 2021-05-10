@@ -1,10 +1,13 @@
 import numpy as np
 import cupy as cp
+import cudf
+from cuml import KMeans, PCA
 from skimage import data, io
 from skimage.color import rgb2gray
 from skimage.exposure import equalize_hist
+import sys
 
-image = cp.asarray(io.imread('input2-crop.png', as_gray=True))
+image = cp.asarray(io.imread('~/image_5.png', as_gray=True))
 
 # SAMPLE is what is taken in each region/window
 # neighbourhood_size is the size of each sample (n)
@@ -16,7 +19,7 @@ window_size = 2 * neighbourhood_size - 1
 padded = cp.pad(image, window_size // 2, mode='symmetric')
 features = cp.zeros((image.shape[0] * image.shape[1], (neighbourhood_size**2 +1) // 2))
 
-io.imsave("padded.png", cp.asnumpy(padded))
+#io.imsave("padded.png", cp.asnumpy(padded))
 
 c = 100
 
@@ -61,7 +64,7 @@ for i in range(features.shape[1]):
 	for y in range(image.shape[0]):
 		for x in range(image.shape[1]):
 			feature_images[i][y][x] = features[y*image.shape[1]+x][i]
-	io.imsave(f"feature_images/feature_{i}.png", cp.asnumpy(feature_images[i]))
+#	io.imsave(f"feature_images/feature_{i}.png", cp.asnumpy(feature_images[i]))
 
 # Calculate LPH
 histogram_window_size = 20 #b
@@ -78,4 +81,22 @@ for y in range(0,image.shape[0]-histogram_window_size+1, histogram_window_size):
 		feature_vectors[index] = feature_vector
 		index += 1
 
-cp.save("features.npy", feature_vectors)
+#cp.save("features.npy", feature_vectors)
+
+# Apply PCA
+no_dimensions = 25
+reduced_features = PCA(n_components=no_dimensions).fit(features).transform(features)
+
+# Cluster
+n_clusters=2
+kmeans = KMeans(n_clusters=n_clusters).fit(reduced_features)
+segmented = np.zeros(image.shape)
+index = 0
+for y in range(0,image.shape[0] - histogram_window_size + 1, histogram_window_size):
+	for x in range(0,image.shape[1] - histogram_window_size + 1, histogram_window_size):
+		label = kmeans.labels_[index]
+		ix = np.ix_(range(y,y+histogram_window_size),range(x,x+histogram_window_size))
+		segmented[ix] = label*255/n_clusters
+		index += 1
+		
+io.imsave("segmented.png", segmented)

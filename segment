@@ -1,10 +1,12 @@
 #!/bin/sh
+# MUST BE IN ~/segment ALONG WITH ALL ALGORITHMS IN THEIR FOLDERS
+
 #Segment
 #Usage:
-#  segment lbp <images> <maps> <number> <destination>
-#  segment filter-bank <images> <maps> <number> <destination>
-#  segment lbp-filter-bank <images> <maps> <number> <destination>
-#  segment gmrf <images> <maps> <number> <destination>
+#  segment lbp <images> <maps> <number> <destination> <window-size> <radii> <bins> <no-segments>
+#  segment filter-bank <images> <maps> <number> <destination> <window-size> <no-segments>
+#  segment lbp-filter-bank <images> <maps> <number> <destination> <window-size> <radius> <bins> <no-segments>
+#  segment gmrf <images> <maps> <number> <destination> <neighbourhood> <histogram-size> <bins> <no-segments>
 #  segment -h | --help
 #Options:
 #	-h --help	Show this screen
@@ -27,25 +29,29 @@ done
 
 # Show help screen  if the conditionals above asked for it
 if [[ $show_help == true ]]; then
+	echo "Script to queue segmentation algorithms on a dataset"
 	echo "Usage:"
-	echo "	segment lbp <images> <maps> <number> <destination>"
-	echo "	segment filter-bank <images> <maps> <number> <destination>"
-	echo "	segment lbp-filter-bank <images> <maps> <number> <destination>"
-	echo "	segment gmrf <images> <maps> <number> <destination>"
-	echo "	segment -h | --help"
+	echo "	segment lbp <images> <maps> <number> <destination>               <window-size> <radii> <bins> <no-segments>"
+	echo "	segment filter-bank <images> <maps> <number> <destination>       <window-size> <no-segments>"
+	echo "	segment lbp-filter-bank <images> <maps> <number> <destination>   <window-size> <radius> <bins> <no-segments>"
+	echo "	segment gmrf <images> <maps> <number> <destination>              <neighbourhood> <histogram-size> <bins> <no-segments>"
+	echo -e "	segment -h | --help\n"
 	echo "Options:"
-	echo "	-h --help	Show this screen"
+	echo -e "	-h --help	Show this screen\n"
+	echo -e "Warning: Clears previous output for that algorithm in destination folder\n"
+	echo "Assumptions:"
+	echo "	- This file is placed in ~/segment"
+	echo "	- The script is written specifically for sbatch on a lyceum node"
+	echo "	- All algorithms are inside ~/segment/<algorithm>/<algorithm>.py"
+	echo "	- You run this script separately for datasets which have a different number of segments"
+	echo "	- Images are all .png format and named with indices 1..<number> with maps named to match"
+	echo "	- Python is loaded to have all dependencies"
 	exit 1
 fi
 
-algorithm=$1
-images_dir=$2
-map_dir=$3
-number=$4
-dest=$5
 
-if [[ ! $algorithm == "lbp" ]] && [[ ! $algorithm == "filter-bank" ]] && [[ ! $algorithm == "lbp-filter-bank" ]] && [[ ! $algorithm == "gmrf" ]]; then
-	echo "segment: ${algorithm} is not a supported algorithm"
+if [[ ! $1 == "lbp" ]] && [[ ! $1 == "filter-bank" ]] && [[ ! $1 == "lbp-filter-bank" ]] && [[ ! $1 == "gmrf" ]]; then
+	echo "segment: ${1} is not a supported algorithm"
 	echo "Try 'segment -h' for more information"
 	exit 1
 fi
@@ -67,24 +73,75 @@ check_int_arg () {
 	fi
 }
 
-check_dir_arg $images_dir
-check_dir_arg $map_dir
-check_dir_arg $dest
-check_int_arg $number
+check_dir_arg $2 # image dir
+check_dir_arg $3 # map dir
+check_int_arg $4 # number
+check_dir_arg $5 # dest dir
 
-if [[ $algorithm == "lbp" ]]; then
-	echo "Queuing LBP segmentation..."
+check_int_arg $6 # window-size for all except gmrf, n for gmrf. Should be int for all
+
+rm ${5}/${1} -rf # clear algorithm dir in dest dir
+mkdir ${5}/${1}
+
+original_pwd=$(pwd)
+
+if [[ $1 == "lbp" ]]; then
+	# Complicated to check 7 because it's an array
+	check_int_arg $8
+	check_int_arg $9
+
 	for i in $(seq "$4"); do
-		echo "job"
-		#echo -e "#!/bin/sh\n#SBATCH --time=59:00:00\npython $1" > ~/batch_scripts/script_${1%%.*}.sh
-		#sbatch -p lyceum --gres=gpu:1 ~/batch_scripts/script_${1%%.*}.sh
+		mkdir ${5}/${1}/${i}
+		cp ${2}/${i}.png ${5}/${1}/${i}/input.png
+		cp ${3}/${i}.png ${5}/${1}/${i}/truth.png
+		python_command="python ~/segment/${1}/${1}.py ${5}/${1}/${i}/input.png ${6} ${7} ${8} ${9}"
+		jaccard_command="python ~/segment/jaccard.py ${9} ${5}/${1}/${i}/output.png ${5}/${1}/${i}/truth.png >> ${5}/${1}/${i}/accuracy.txt"
+		echo -e "#!/bin/sh\n#SBATCH --time=59:00:00\n$python_command\n$jaccard_command" > ${5}/${1}/${i}/${1}_script.sh
+		cd ${5}/${1}/${i}/
+		sbatch -p lyceum ${5}/${1}/${i}/${1}_script.sh
 	done
-elif [[ $algorithm == "filter-bank" ]]; then
-	echo "Queuing Filter bank segmentation..."
-elif [[ $algorithm == "lbp-filter-bank" ]]; then
-	echo "Queuing LBP + Filter Bank segmentation..."
-elif [[ $algorithm == "gmrf" ]]; then
-	echo "Queuing GMRF segmentation..."
+elif [[ $1 == "filter-bank" ]]; then
+	check_int_arg $7
+	for i in $(seq "$4"); do
+		mkdir ${5}/${1}/${i}
+		cp ${2}/${i}.png ${5}/${1}/${i}/input.png
+		cp ${3}/${i}.png ${5}/${1}/${i}/truth.png
+		python_command="python ~/segment/${1}/${1}.py ${5}/${1}/${i}/input.png ${6} ${7}"
+		jaccard_command="python ~/segment/jaccard.py ${7} ${5}/${1}/${i}/output.png ${5}/${1}/${i}/truth.png >> ${5}/${1}/${i}/accuracy.txt"
+		echo -e "#!/bin/sh\n#SBATCH --time=59:00:00\n$python_command\n$jaccard_command" > ${5}/${1}/${i}/${1}_script.sh
+		cd ${5}/${1}/${i}/
+		sbatch -p lyceum ${5}/${1}/${i}/${1}_script.sh
+	done
+elif [[ $1 == "lbp-filter-bank" ]]; then
+	check_int_arg $7
+	check_int_arg $8
+	check_int_arg $9
+	for i in $(seq "$4"); do
+		mkdir ${5}/${1}/${i}
+		cp ${2}/${i}.png ${5}/${1}/${i}/input.png
+		cp ${3}/${i}.png ${5}/${1}/${i}/truth.png
+		python_command="python ~/segment/${1}/${1}.py ${5}/${1}/${i}/input.png ${6} ${7} ${8} ${9}"
+		jaccard_command="python ~/segment/jaccard.py ${9} ${5}/${1}/${i}/output.png ${5}/${1}/${i}/truth.png >> ${5}/${1}/${i}/accuracy.txt"
+		echo -e "#!/bin/sh\n#SBATCH --time=59:00:00\n$python_command\n$jaccard_command" > ${5}/${1}/${i}/${1}_script.sh
+		cd ${5}/${1}/${i}/
+		sbatch -p lyceum ${5}/${1}/${i}/${1}_script.sh
+	done
+elif [[ $1 == "gmrf" ]]; then
+	check_int_arg $7
+	check_int_arg $8
+	check_int_arg $9
+	for i in $(seq "$4"); do
+		mkdir ${5}/${1}/${i}
+		cp ${2}/${i}.png ${5}/${1}/${i}/input.png
+		cp ${3}/${i}.png ${5}/${1}/${i}/truth.png
+		python_command="python ~/segment/${1}/gmrf_pixels.py ${5}/${1}/${i}/input.png ${6} ${7} ${8} ${9}"
+		jaccard_command="python ~/segment/jaccard.py ${9} ${5}/${1}/${i}/output.png ${5}/${1}/${i}/truth.png >> ${5}/${1}/${i}/accuracy.txt"
+		echo -e "#!/bin/sh\n#SBATCH --time=59:00:00\n$python_command\n$jaccard_command" > ${5}/${1}/${i}/${1}_script.sh
+		cd ${5}/${1}/${i}/
+		sbatch -p lyceum ${5}/${1}/${i}/${1}_script.sh
+	done
+
 fi
 
+cd $original_pwd
 echo "Segmentation jobs successfully queued"

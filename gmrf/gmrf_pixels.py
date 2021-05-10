@@ -6,13 +6,13 @@ from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
 import sys
 
-image = io.imread('~/image_5.png', as_gray=True)
+image = io.imread(sys.argv[1], as_gray=True)
 
 # SAMPLE is what is taken in each region/window
 # neighbourhood_size is the size of each sample (n)
 # region/window is omega_s
 # w (region/window size) = 2n - 1
-neighbourhood_size = 7 # make sure this is odd
+neighbourhood_size = int(sys.argv[2]) # make sure this is odd, 7 recommended
 no_samples = neighbourhood_size ** 2
 window_size = 2 * neighbourhood_size - 1
 padded = np.pad(image, window_size // 2, mode='symmetric')
@@ -22,7 +22,6 @@ features = np.zeros((image.shape[0] * image.shape[1], (neighbourhood_size**2 +1)
 
 c = 100
 
-# we have a ohm_s at each pixel
 for image_y in range(image.shape[0]):
 	for image_x in range(image.shape[1]):
 		print(image_x,image_y)
@@ -51,49 +50,44 @@ for image_y in range(image.shape[0]):
 		sigma_squared = 0
 		for s in range(no_samples):
 			sigma_squared += (y[s][0] - np.matmul(alpha.T, Y_bar_t[s][np.newaxis,:].T)[0][0])**2
-		sigma_squared /= window_size**2
+		sigma_squared /= no_samples**2
 
 		features[image_y*image.shape[1]+image_x][:(neighbourhood_size**2-1)//2] = alpha[:,0]
 		features[image_y*image.shape[1]+image_x][(neighbourhood_size**2-1)//2] = np.sqrt(sigma_squared)
 
 #features shape = (image.shape[0] * image.shape[1], (neighbourhood_size**2 +1) // 2)
-feature_images = np.zeros((features.shape[1],image.shape[0],image.shape[1]))
-
+histogram_window_size = int(sys.argv[3]) #b, must be even because of padding
+feature_images = np.zeros((features.shape[1],image.shape[0]+histogram_window_size,image.shape[1]+histogram_window_size))
 for i in range(features.shape[1]):
+	feature_image = np.zeros(image.shape)
 	for y in range(image.shape[0]):
 		for x in range(image.shape[1]):
-			feature_images[i][y][x] = features[y*image.shape[1]+x][i]
+			feature_image[y][x] = features[y*image.shape[1]+x][i]
+	feature_images[i] = np.pad(feature_image, histogram_window_size // 2, mode='symmetric')
+	#io.imsave(f"feature_images/feature_{i}.png", feature_images[i])
 
 # Calculate LPH
-histogram_window_size = 20 #b
-no_bins = 10
-no_histogram_windows = (image.shape[0] // histogram_window_size) * (image.shape[1] // histogram_window_size)
-feature_vectors = np.zeros((no_histogram_windows,feature_images.shape[0]*no_bins))
-index = 0
-for y in range(0,image.shape[0]-histogram_window_size+1, histogram_window_size):
-	for x in range(0,image.shape[1]-histogram_window_size+1, histogram_window_size):
+no_bins = int(sys.argv[4])
+feature_vectors = np.zeros((image.shape[0] * image.shape[1],feature_images.shape[0]*no_bins))
+for y in range(image.shape[0]):
+	for x in range(image.shape[1]):
 		feature_vector = np.zeros((feature_images.shape[0]*no_bins,))
 		for i in range(feature_images.shape[0]):
 			region = feature_images[i][np.ix_(range(y,y+histogram_window_size),range(x,x+histogram_window_size))]
 			feature_vector[i*no_bins:(i+1)*no_bins] = np.histogram(region,no_bins)[0]
-		feature_vectors[index] = feature_vector
-		index += 1
-
+		feature_vectors[y*image.shape[1]+x] = feature_vector
 
 # Apply PCA
-no_dimensions = 25
+no_dimensions = 25 # fixed  as in paper
 reduced_features = PCA(no_dimensions).fit(features).transform(features)
 
 # Cluster
-n_clusters=4
+n_clusters= int(sys.argv[5])
 kmeans = KMeans(n_clusters).fit(reduced_features)
 segmented = np.zeros(image.shape)
-index = 0
-for y in range(0,image.shape[0] - histogram_window_size + 1, histogram_window_size):
-	for x in range(0,image.shape[1] - histogram_window_size + 1, histogram_window_size):
-		label = kmeans.labels_[index]
-		ix = np.ix_(range(y,y+histogram_window_size),range(x,x+histogram_window_size))
-		segmented[ix] = label*255/n_clusters
-		index += 1
-		
-io.imsave("segmented.png", segmented)
+for y in range(image.shape[0]):
+	for x in range(image.shape[1]):
+		label = kmeans.labels_[y*image.shape[1]+x]
+		segmented[y][x] = label * 255/n_clusters
+
+io.imsave("output.png", segmented)

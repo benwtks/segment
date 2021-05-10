@@ -1,10 +1,12 @@
+WITH JUST CLUSTERING USING GPU
+
 Running SLURM prolog script on pink56.cluster.local
 ===============================================================================
-Job started on Sat May  8 19:33:51 BST 2021
-Job ID          : 167555
-Job name        : script_filter-bank.sh
+Job started on Sat May  8 22:35:24 BST 2021
+Job ID          : 167632
+Job name        : script_mixed.sh
 WorkDir         : /mainfs/lyceum/blw1g18/segment/filter-bank
-Command         : /lyceum/blw1g18/batch_scripts/script_filter-bank.sh
+Command         : /lyceum/blw1g18/batch_scripts/script_mixed.sh
 Partition       : lyceum
 Num hosts       : 1
 Num cores       : 2
@@ -17,20 +19,20 @@ Using 21 Gabor filters
 ==============================================================================
 Running epilogue script on pink56.
 
-Submit time  : 2021-05-08T19:33:50
-Start time   : 2021-05-08T19:33:51
-End time     : 2021-05-08T19:40:54
-Elapsed time : 00:07:03 (Timelimit=2-11:00:00)
+Submit time  : 2021-05-08T22:35:24
+Start time   : 2021-05-08T22:35:24
+End time     : 2021-05-08T22:42:00
+Elapsed time : 00:06:36 (Timelimit=2-11:00:00)
 
-Job ID: 167555
+Job ID: 167632
 Cluster: i5
 User/Group: blw1g18/fp
 State: COMPLETED (exit code 0)
 Nodes: 1
 Cores per node: 2
-CPU Utilized: 00:06:57
-CPU Efficiency: 49.29% of 00:14:06 core-walltime
-Job Wall-clock time: 00:07:03
-Memory Utilized: 146.54 MB
+CPU Utilized: 00:06:36
+CPU Efficiency: 50.00% of 00:13:12 core-walltime
+Job Wall-clock time: 00:06:36
+Memory Utilized: 346.45 MB
 Memory Efficiency: 0.00% of 0.00 MB
 

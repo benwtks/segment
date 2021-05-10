@@ -1,0 +1,35 @@
+Running SLURM prolog script on pink57.cluster.local
+===============================================================================
+Job started on Sat May  8 23:08:39 BST 2021
+Job ID          : 167704
+Job name        : script_no_gpu.sh
+WorkDir         : /mainfs/lyceum/blw1g18/segment/lbp
+Command         : /lyceum/blw1g18/batch_scripts/script_no_gpu.sh
+Partition       : lyceum
+Num hosts       : 1
+Num cores       : 2
+Num of tasks    : 1
+Hosts allocated : pink57
+Job Output Follows ...
+===============================================================================
+Lossy conversion from float64 to uint8. Range [0.0, 127.5]. Convert image to uint8 prior to saving to suppress this warning.
+==============================================================================
+Running epilogue script on pink57.
+
+Submit time  : 2021-05-08T23:08:37
+Start time   : 2021-05-08T23:08:39
+End time     : 2021-05-08T23:10:38
+Elapsed time : 00:01:59 (Timelimit=2-11:00:00)
+
+Job ID: 167704
+Cluster: i5
+User/Group: blw1g18/fp
+State: COMPLETED (exit code 0)
+Nodes: 1
+Cores per node: 2
+CPU Utilized: 00:01:57
+CPU Efficiency: 49.16% of 00:03:58 core-walltime
+Job Wall-clock time: 00:01:59
+Memory Utilized: 143.45 MB
+Memory Efficiency: 0.00% of 0.00 MB
+
