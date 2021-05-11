@@ -3,7 +3,7 @@
 
 #Segment
 #Usage:
-#  segment lbp <images> <maps> <number> <destination> <window-size> <radii> <bins> <no-segments>
+#  segment lbp <images> <maps> <number> <destination> <window-size> <max-radius> <no-segments>
 #  segment filter-bank <images> <maps> <number> <destination> <window-size> <no-segments>
 #  segment lbp-filter-bank <images> <maps> <number> <destination> <window-size> <radius> <bins> <no-segments>
 #  segment gmrf <images> <maps> <number> <destination> <neighbourhood> <histogram-size> <bins> <no-segments>
@@ -31,7 +31,7 @@ done
 if [[ $show_help == true ]]; then
 	echo "Script to queue segmentation algorithms on a dataset"
 	echo "Usage:"
-	echo "	segment lbp <images> <maps> <number> <destination>               <window-size> <radii> <bins> <no-segments>"
+	echo "	segment lbp <images> <maps> <number> <destination>               <window-size> <max-radius> <no-segments>"
 	echo "	segment filter-bank <images> <maps> <number> <destination>       <window-size> <no-segments>"
 	echo "	segment lbp-filter-bank <images> <maps> <number> <destination>   <window-size> <radius> <bins> <no-segments>"
 	echo "	segment gmrf <images> <maps> <number> <destination>              <neighbourhood> <histogram-size> <bins> <no-segments>"
@@ -79,6 +79,7 @@ check_int_arg $4 # number
 check_dir_arg $5 # dest dir
 
 check_int_arg $6 # window-size for all except gmrf, n for gmrf. Should be int for all
+check_int_arg $7 # max-radius for lbp, no-segments for filter-bank, radius for lbp-filter-bank, hist size for gmrf
 
 rm ${5}/${1} -rf # clear algorithm dir in dest dir
 mkdir ${5}/${1}
@@ -86,22 +87,18 @@ mkdir ${5}/${1}
 original_pwd=$(pwd)
 
 if [[ $1 == "lbp" ]]; then
-	# Complicated to check 7 because it's an array
 	check_int_arg $8
-	check_int_arg $9
-
 	for i in $(seq "$4"); do
 		mkdir ${5}/${1}/${i}
 		cp ${2}/${i}.png ${5}/${1}/${i}/input.png
 		cp ${3}/${i}.png ${5}/${1}/${i}/truth.png
-		python_command="python ~/segment/${1}/${1}.py ${5}/${1}/${i}/input.png ${6} ${7} ${8} ${9}"
-		jaccard_command="python ~/segment/jaccard.py ${9} ${5}/${1}/${i}/output.png ${5}/${1}/${i}/truth.png >> ${5}/${1}/${i}/accuracy.txt"
+		python_command="python ~/segment/${1}/${1}.py ${5}/${1}/${i}/input.png ${6} ${7} ${8}"
+		jaccard_command="python ~/segment/jaccard.py ${8} ${5}/${1}/${i}/output.png ${5}/${1}/${i}/truth.png >> ${5}/${1}/${i}/accuracy.txt"
 		echo -e "#!/bin/sh\n#SBATCH --time=59:00:00\n$python_command\n$jaccard_command" > ${5}/${1}/${i}/${1}_script.sh
 		cd ${5}/${1}/${i}/
 		sbatch -p lyceum ${5}/${1}/${i}/${1}_script.sh
 	done
 elif [[ $1 == "filter-bank" ]]; then
-	check_int_arg $7
 	for i in $(seq "$4"); do
 		mkdir ${5}/${1}/${i}
 		cp ${2}/${i}.png ${5}/${1}/${i}/input.png
@@ -113,7 +110,6 @@ elif [[ $1 == "filter-bank" ]]; then
 		sbatch -p lyceum ${5}/${1}/${i}/${1}_script.sh
 	done
 elif [[ $1 == "lbp-filter-bank" ]]; then
-	check_int_arg $7
 	check_int_arg $8
 	check_int_arg $9
 	for i in $(seq "$4"); do
